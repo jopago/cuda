@@ -13,7 +13,7 @@ plt.plot(np.log2(times['N']), times['GPU_Time'],label='GPU Time (s)',color='dark
 plt.xlabel(r'$\log_2(N)$')
 plt.legend()
 
-plt.savefig('timing_wavelets.pdf',bbox_inches='tight', pad_inches=0,dpi=1000)
+plt.savefig('img/timing_wavelets.png',bbox_inches='tight', pad_inches=0,dpi=1000)
 plt.show()
 
 print(times.head())
