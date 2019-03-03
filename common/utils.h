@@ -17,12 +17,12 @@ double elapsed(clock_t begin, clock_t end)
     return (double)(end - begin) / CLOCKS_PER_SEC;
 }
 
-int check_power_two(int n)
+int check_power_two(const int n)
 {
     return !(n & (n-1));
 }
 
-void disp(double *t, int n)
+void disp(double *t, const int n)
 {
     int i;
     for(i=0;i<n;i++)
@@ -32,13 +32,30 @@ void disp(double *t, int n)
     printf("\n");
 }
 
-void fill_rand(double *t, int n)
+void fill_rand(double *t, const int n)
 {
-    int i;
-    for(i=0;i<n;i++)
+    int i=0;
+    for(;i<n;i++)
     {
         t[i] = (rand() % INT_MAX)*1e-5;
     }
+}
+
+int test_arrays_equal(double *t1, double *t2, const int n,
+    const double tol = 1e-6)
+{
+    int i=0;
+    for(;i<n;i++) 
+    {
+        if(fabs(t1[i] - t2[i]) > tol) 
+        {
+            printf("Arrays not equal!\n");
+            return 0;
+        }
+    }
+
+    printf("Arrays are equal!\n");
+    return 1;
 }
 
 #endif
