@@ -3,7 +3,6 @@
 
 #include "daubechies4.h"
 
-
 /*  The Daubechies-4 wavelet forward pass
     I adapted this code from http://bearcave.com/misl/misl_tech/wavelets/index.html
     To compute the full the full wavelet transform of a signal of size N
@@ -41,15 +40,16 @@ __global__ void gpu_idwt_pass(double *src, double *dest, int n)
     }
 }
 
-int gpu_dwt(double *t, int n)
+double gpu_dwt(double *t, int N)
 {
-    assert(check_power_two(n));
+    assert(check_power_two(N));
 
-    size_t size = n*sizeof(double);
+    size_t size = N*sizeof(double);
     double *d_src,*d_dst;
+    int n = N;
 
     int threadsPerBlock = 512;
-    int blocksPerGrid =(n + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid =(N + threadsPerBlock - 1) / threadsPerBlock;
 
     CUDA_CALL(cudaMalloc((void**)&d_src,size));
     CUDA_CALL(cudaMalloc((void**)&d_dst,size));
@@ -62,14 +62,16 @@ int gpu_dwt(double *t, int n)
     while(n >= 4)
     {
         gpu_dwt_pass<<<blocksPerGrid,threadsPerBlock>>>(d_src,d_dst,n);
-        CUDA_CALL(cudaMemcpy(d_src,d_dst,size,cudaMemcpyDeviceToDevice));
+        // we need only copy the n first elements, not the whole signal
+        CUDA_CALL(cudaMemcpy(d_src,d_dst,n*sizeof(double),cudaMemcpyDeviceToDevice)); 
         n = n>>1;
     }
+    cudaDeviceSynchronize();
     end = clock();
     CUDA_CALL(cudaMemcpy(t,d_src,size,cudaMemcpyDeviceToHost));
     
     printf("GPU Elapsed: %lfs \n", elapsed(begin,end));
-    return 0;
+    return elapsed(begin,end);
 }
 
 int gpu_idwt(double *t, int N)
@@ -94,9 +96,10 @@ int gpu_idwt(double *t, int N)
     while(n <= N)
     {
         gpu_idwt_pass<<<blocksPerGrid,threadsPerBlock>>>(d_src,d_dst,n);
-        CUDA_CALL(cudaMemcpy(d_src,d_dst,size,cudaMemcpyDeviceToDevice));
+        CUDA_CALL(cudaMemcpy(d_src,d_dst,n*sizeof(double),cudaMemcpyDeviceToDevice));
         n = n << 1;
     }
+    cudaDeviceSynchronize();
     end = clock();
     CUDA_CALL(cudaMemcpy(t,d_src,size,cudaMemcpyDeviceToHost));
     
@@ -131,6 +134,7 @@ void cpu_d4_transform(double *src, double* dest, const int n)
 
 void cpu_d4_inv_transform(double *t, int n)
 {
+
     if(n >= 4)
     {
         int i=0,j;
@@ -161,11 +165,11 @@ void cpu_d4_inv_transform(double *t, int n)
 
 
 
-void cpu_dwt(double* t, int N)
+double cpu_dwt(double* t, int N)
 {
     assert(check_power_two(N));
     int n=N;
-
+    clock_t begin,end;
     double *tmp = (double*)malloc(N*sizeof(double));
 
     if(!tmp)
@@ -174,14 +178,19 @@ void cpu_dwt(double* t, int N)
         exit(EXIT_FAILURE);
     }
 
+    begin = clock();
     while(n >= 4) 
     {
         cpu_d4_transform(t,tmp,n);
-        memcpy(t,tmp,N*sizeof(double));
+        memcpy(t,tmp,n*sizeof(double));
+
         n >>= 1;
     }
 
+    end = clock();
+    printf("CPU Elapsed: %lfs\n", elapsed(begin,end));
     free(tmp);
+    return elapsed(begin,end);
 }
 
 void cpu_idwt(double *t, int N)
@@ -195,47 +204,68 @@ void cpu_idwt(double *t, int N)
     }
 }
 
-int main()
+int save_timing()
 {
-    const int N = (1<<15);
-    size_t size = N*sizeof(double);
-    clock_t begin, end; 
-    double * gpu_coef   = (double*)malloc(size);
-    double * cpu_coef   = (double*)malloc(size);
-    double * x0         = (double*)malloc(size);
+    FILE *save = fopen("timing.csv", "w+");
 
-    if(!gpu_coef || !cpu_coef || !x0) {
-        fprintf(stderr, "%s\n", "could not allocate memory for signals!\n");
+    if(!save) 
+    {
+        fprintf(stderr, "%s\n", "(host) unable to create timing file..");
         exit(EXIT_FAILURE);
     }
 
-    /* copy constants */
+    fprintf(save,"%s,%s,%s\n", "N", "CPU_Time","GPU_Time");
+
+    int n = 1<<10;
+    double cpu_time,gpu_time;
 
     CUDA_CALL(cudaMemcpyToSymbol(g,_g,4*sizeof(double)));
     CUDA_CALL(cudaMemcpyToSymbol(h,_h,4*sizeof(double)));
     CUDA_CALL(cudaMemcpyToSymbol(ig,_ig,4*sizeof(double)));
     CUDA_CALL(cudaMemcpyToSymbol(ih,_ih,4*sizeof(double)));
 
-
-    fill_rand(x0, N);
-    memcpy(gpu_coef,x0,size);
-    memcpy(cpu_coef,x0,size); // save initial (random) array 
-
-    gpu_dwt(gpu_coef,N);
-
-    begin = clock();
-    cpu_dwt(cpu_coef,N);
-    end = clock();
-
-    printf("CPU elapsed: %lfs\n", elapsed(begin,end));
-
-    /* Test wavelet decomposition */
-
-    if(test_arrays_equal(gpu_coef,cpu_coef,N)) 
+    while(n <= (1<<24)) 
     {
-        printf("Wavelet decomposition is the same on CPU and GPU.\n");
-    } else {
-        printf("Wavelet decompsition is not the same on CPU and GPU!\n");
-        exit(EXIT_FAILURE);
+        printf("n=%d\n",n);
+
+        size_t size = n*sizeof(double);
+        double * gpu_coef   = (double*)malloc(size);
+        double * cpu_coef   = (double*)malloc(size);
+        double * x0         = (double*)malloc(size);
+
+        if(!gpu_coef || !cpu_coef || !x0) {
+            fprintf(stderr, "%s\n", "could not allocate memory for signals!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        /* copy constants */
+
+        
+
+        fill_rand(x0, n);
+        memcpy(gpu_coef,x0,size);
+        memcpy(cpu_coef,x0,size); // save initial (random) array 
+
+        gpu_time = gpu_dwt(gpu_coef,n);
+        cpu_time = cpu_dwt(cpu_coef,n);
+
+        if(!test_arrays_equal(gpu_coef,cpu_coef,n))
+        {
+            printf("Arrays not equal!\n");
+            exit(EXIT_FAILURE);
+        }
+
+        fprintf(save, "%d,%lf,%lf\n", n,cpu_time,gpu_time);
+
+        n <<= 1;
     }
+
+    fclose(save);
+
+    return 0;
+}
+
+int main()
+{
+    save_timing();
 }
