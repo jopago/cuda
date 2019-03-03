@@ -49,12 +49,12 @@ int test_arrays_equal(double *t1, double *t2, const int n,
     {
         if(fabs(t1[i] - t2[i]) > tol) 
         {
-            printf("Arrays not equal!\n");
+            // printf("Arrays not equal!\n");
             return 0;
         }
     }
 
-    printf("Arrays are equal!\n");
+    // printf("Arrays are equal!\n");
     return 1;
 }
 

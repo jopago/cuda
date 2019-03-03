@@ -6,17 +6,6 @@
 #define sqrt3   1.73205080757
 #define daub    5.65685424949
 
-/* Device constants */
-
-__constant__ const double h[4] = {
-    (1 + sqrt3)/daub, (3 + sqrt3)/daub,
-    (3 - sqrt3)/daub, (1 - sqrt3)/daub
-};
-
-__constant__ const double g[4] = {
-    (1 - sqrt3)/daub, -(3 - sqrt3)/daub, (3 + sqrt3)/daub, -(1 + sqrt3)/daub
-};
-
 /* Host constants */
 
 const double _h[4] = {
@@ -35,5 +24,12 @@ const double _ih[4] = {
 const double _ig[4] = {
     _h[3],_g[3],_h[1],_g[1]
 };
+
+/* Device constants */
+
+__constant__ double g[4];
+__constant__ double h[4];
+__constant__ double ig[4];
+__constant__ double ih[4];
 
 #endif 

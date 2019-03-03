@@ -25,6 +25,21 @@ __global__ void gpu_dwt_pass(double *src, double *dest, int n)
 
 }
 
+__global__ void gpu_idwt_pass(double *src, double *dest, int n)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int half = n >> 1;
+
+    if(i == 0)
+    {
+        dest[0] = src[half-1]*ih[0] + src[n-1]*ih[1] + src[0]*ih[2] + src[half]*ih[3];
+        dest[1] = src[half-1]*ig[0] + src[n-1]*ig[1] + src[0]*ig[2] + src[half]*ig[3];
+    } else if (i < (half-1)) 
+    {
+        dest[i+2]    = src[i]*ih[0] + src[i+half]*ih[1] + src[i+1]*ih[2] + src[i+half+1]*ih[3];
+        dest[i+3]    = src[i]*ig[0] + src[i+half]*ig[1] + src[i+1]*ig[2] + src[i+half+1]*ig[3];
+    }
+}
 
 int gpu_dwt(double *t, int n)
 {
@@ -57,7 +72,39 @@ int gpu_dwt(double *t, int n)
     return 0;
 }
 
-void cpu_d4_transform(double *t, const int n)
+int gpu_idwt(double *t, int N)
+{
+    assert(check_power_two(N));
+
+    size_t size = N*sizeof(double);
+    double *d_src,*d_dst;
+    int n = 4;
+
+    int threadsPerBlock = 512;
+    int blocksPerGrid =(N + threadsPerBlock - 1) / threadsPerBlock;
+
+    CUDA_CALL(cudaMalloc((void**)&d_src,size));
+    CUDA_CALL(cudaMalloc((void**)&d_dst,size));
+
+    CUDA_CALL(cudaMemcpy(d_src,t,size,cudaMemcpyHostToDevice));
+
+    clock_t begin, end;
+
+    begin = clock();
+    while(n <= N)
+    {
+        gpu_idwt_pass<<<blocksPerGrid,threadsPerBlock>>>(d_src,d_dst,n);
+        CUDA_CALL(cudaMemcpy(d_src,d_dst,size,cudaMemcpyDeviceToDevice));
+        n = n << 1;
+    }
+    end = clock();
+    CUDA_CALL(cudaMemcpy(t,d_src,size,cudaMemcpyDeviceToHost));
+    
+    printf("GPU Elapsed: %lfs \n", elapsed(begin,end));
+    return 0;
+}
+
+void cpu_d4_transform(double *src, double* dest, const int n)
 {
     
     if (n >= 4) 
@@ -65,31 +112,20 @@ void cpu_d4_transform(double *t, const int n)
         int i=0,j=0;
         const int half = n>>1;
 
-        double * tmp = (double*)malloc(sizeof(double)*n);
-
-        if(!tmp) 
-        {
-            fprintf(stderr, "cannot allocate memory for daubechies transform");
-            exit(EXIT_FAILURE);
-        }
-
         for (i = 0; i < half; i++) 
         {
             j = 2*i;
             if (j < n-3) {
-                tmp[i]      = t[j]*_h[0] + t[j+1]*_h[1] + t[j+2]*_h[2] + t[j+3]*_h[3];
-                tmp[i+half] = t[j]*_g[0] + t[j+1]*_g[1] + t[j+2]*_g[2] + t[j+3]*_g[3];
+                dest[i]      = src[j]*_h[0] + src[j+1]*_h[1] + src[j+2]*_h[2] + src[j+3]*_h[3];
+                dest[i+half] = src[j]*_g[0] + src[j+1]*_g[1] + src[j+2]*_g[2] + src[j+3]*_g[3];
             } 
             else { 
                 break; 
             }
         }
 
-        tmp[i]      = t[n-2]*_h[0] + t[n-1]*_h[1] + t[0]*_h[2] + t[1]*_h[3];
-        tmp[i+half] = t[n-2]*_g[0] + t[n-1]*_g[1] + t[0]*_g[2] + t[1]*_g[3];
-
-        memcpy(t,tmp,n*sizeof(double));
-        free(tmp);
+        dest[i]      = src[n-2]*_h[0] + src[n-1]*_h[1] + src[0]*_h[2] + src[1]*_h[3];
+        dest[i+half] = src[n-2]*_g[0] + src[n-1]*_g[1] + src[0]*_g[2] + src[1]*_g[3];
     }
 }
 
@@ -130,17 +166,27 @@ void cpu_dwt(double* t, int N)
     assert(check_power_two(N));
     int n=N;
 
+    double *tmp = (double*)malloc(N*sizeof(double));
+
+    if(!tmp)
+    {
+        fprintf(stderr,"(host) cannot allocate memory for DWT\n");
+        exit(EXIT_FAILURE);
+    }
+
     while(n >= 4) 
     {
-        cpu_d4_transform(t,n);
+        cpu_d4_transform(t,tmp,n);
+        memcpy(t,tmp,N*sizeof(double));
         n >>= 1;
     }
+
+    free(tmp);
 }
 
 void cpu_idwt(double *t, int N)
 {
     assert(check_power_two(N));
-
     int n;
 
     for(n = 4; n <= N; n <<= 1)
@@ -151,7 +197,7 @@ void cpu_idwt(double *t, int N)
 
 int main()
 {
-    const int N = (1<<16);
+    const int N = (1<<15);
     size_t size = N*sizeof(double);
     clock_t begin, end; 
     double * gpu_coef   = (double*)malloc(size);
@@ -162,6 +208,14 @@ int main()
         fprintf(stderr, "%s\n", "could not allocate memory for signals!\n");
         exit(EXIT_FAILURE);
     }
+
+    /* copy constants */
+
+    CUDA_CALL(cudaMemcpyToSymbol(g,_g,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(h,_h,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ig,_ig,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ih,_ih,4*sizeof(double)));
+
 
     fill_rand(x0, N);
     memcpy(gpu_coef,x0,size);
@@ -183,12 +237,5 @@ int main()
     } else {
         printf("Wavelet decompsition is not the same on CPU and GPU!\n");
         exit(EXIT_FAILURE);
-    }
-
-    cpu_idwt(cpu_coef,N);
-
-    if(test_arrays_equal(cpu_coef,x0,N)) 
-    {
-        printf("Inverse wavelet transform on CPU: success!\n");
     }
 }
