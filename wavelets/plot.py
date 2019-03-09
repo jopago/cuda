@@ -5,7 +5,7 @@ import numpy as np
 plt.rcParams['text.usetex'] = True
 plt.rcParams['font.family'] = 'Computer Modern'
 
-times = pd.read_csv('timing.csv',sep=',')
+times = pd.read_csv('results/timing.csv',sep=',')
 
 plt.plot(np.log2(times['N']), times['CPU_Time'],label='CPU Time (s)',color='navy')
 plt.plot(np.log2(times['N']), times['GPU_Time'],label='GPU Time (s)',color='darkred')

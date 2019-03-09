@@ -3,6 +3,50 @@
 
 #include "daubechies4.h"
 
+void cpu_d4_transform(double *src, double* dest, const int n)
+{
+    
+    if (n >= 4) 
+    {
+        int i=0,j=0;
+        const int half = n>>1;
+
+        for (i = 0; i < half; i++) 
+        {
+            j = 2*i;
+            if (j < n-3) {
+                dest[i]      = src[j]*_h[0] + src[j+1]*_h[1] + src[j+2]*_h[2] + src[j+3]*_h[3];
+                dest[i+half] = src[j]*_g[0] + src[j+1]*_g[1] + src[j+2]*_g[2] + src[j+3]*_g[3];
+            } 
+            else { 
+                break; 
+            }
+        }
+
+        dest[i]      = src[n-2]*_h[0] + src[n-1]*_h[1] + src[0]*_h[2] + src[1]*_h[3];
+        dest[i+half] = src[n-2]*_g[0] + src[n-1]*_g[1] + src[0]*_g[2] + src[1]*_g[3];
+    }
+}
+
+void cpu_d4_inv_transform(double *src, double *dest, int n)
+{
+
+    if(n >= 4)
+    {
+        int i=0,j;
+        int half = n >> 1;
+       
+        dest[0] = src[half-1]*_ih[0] + src[n-1]*_ih[1] + src[0]*_ih[2] + src[half]*_ih[3];
+        dest[1] = src[half-1]*_ig[0] + src[n-1]*_ig[1] + src[0]*_ig[2] + src[half]*_ig[3];
+        j = 2;
+        for (;i < half-1; i++) 
+        { 
+          dest[j++]    = src[i]*_ih[0] + src[i+half]*_ih[1] + src[i+1]*_ih[2] + src[i+half+1]*_ih[3];
+          dest[j++]    = src[i]*_ig[0] + src[i+half]*_ig[1] + src[i+1]*_ig[2] + src[i+half+1]*_ig[3];
+        }
+    }
+}
+
 /*  The Daubechies-4 wavelet forward pass
     I adapted this code from http://bearcave.com/misl/misl_tech/wavelets/index.html
     To compute the full the full wavelet transform of a signal of size N
@@ -33,10 +77,11 @@ __global__ void gpu_idwt_pass(double *src, double *dest, int n)
     {
         dest[0] = src[half-1]*ih[0] + src[n-1]*ih[1] + src[0]*ih[2] + src[half]*ih[3];
         dest[1] = src[half-1]*ig[0] + src[n-1]*ig[1] + src[0]*ig[2] + src[half]*ig[3];
-    } else if (i < (half-1)) 
+    } 
+    if (i < (half-1)) 
     {
-        dest[i+2]    = src[i]*ih[0] + src[i+half]*ih[1] + src[i+1]*ih[2] + src[i+half+1]*ih[3];
-        dest[i+3]    = src[i]*ig[0] + src[i+half]*ig[1] + src[i+1]*ig[2] + src[i+half+1]*ig[3];
+        dest[2*i+2]    = src[i]*ih[0] + src[i+half]*ih[1] + src[i+1]*ih[2] + src[i+half+1]*ih[3];
+        dest[2*i+3]    = src[i]*ig[0] + src[i+half]*ig[1] + src[i+1]*ig[2] + src[i+half+1]*ig[3];
     }
 }
 
@@ -74,7 +119,7 @@ double gpu_dwt(double *t, int N)
     return elapsed(begin,end);
 }
 
-int gpu_idwt(double *t, int N)
+double gpu_idwt(double *t, int N)
 {
     assert(check_power_two(N));
 
@@ -107,64 +152,6 @@ int gpu_idwt(double *t, int N)
     return 0;
 }
 
-void cpu_d4_transform(double *src, double* dest, const int n)
-{
-    
-    if (n >= 4) 
-    {
-        int i=0,j=0;
-        const int half = n>>1;
-
-        for (i = 0; i < half; i++) 
-        {
-            j = 2*i;
-            if (j < n-3) {
-                dest[i]      = src[j]*_h[0] + src[j+1]*_h[1] + src[j+2]*_h[2] + src[j+3]*_h[3];
-                dest[i+half] = src[j]*_g[0] + src[j+1]*_g[1] + src[j+2]*_g[2] + src[j+3]*_g[3];
-            } 
-            else { 
-                break; 
-            }
-        }
-
-        dest[i]      = src[n-2]*_h[0] + src[n-1]*_h[1] + src[0]*_h[2] + src[1]*_h[3];
-        dest[i+half] = src[n-2]*_g[0] + src[n-1]*_g[1] + src[0]*_g[2] + src[1]*_g[3];
-    }
-}
-
-void cpu_d4_inv_transform(double *t, int n)
-{
-
-    if(n >= 4)
-    {
-        int i=0,j;
-        int half = n >> 1;
-
-        double * tmp = (double*)malloc(sizeof(double)*n);
-
-        if(!tmp) 
-        {
-            fprintf(stderr, "cannot allocate memory for daubechies transform");
-            exit(EXIT_FAILURE);
-        }
-
-       
-        tmp[0] = t[half-1]*_ih[0] + t[n-1]*_ih[1] + t[0]*_ih[2] + t[half]*_ih[3];
-        tmp[1] = t[half-1]*_ig[0] + t[n-1]*_ig[1] + t[0]*_ig[2] + t[half]*_ig[3];
-        j = 2;
-        for (;i < half-1; i++) 
-        { 
-          tmp[j++]    = t[i]*_ih[0] + t[i+half]*_ih[1] + t[i+1]*_ih[2] + t[i+half+1]*_ih[3];
-          tmp[j++]    = t[i]*_ig[0] + t[i+half]*_ig[1] + t[i+1]*_ig[2] + t[i+half+1]*_ig[3];
-        }
-
-        memcpy(t,tmp,n*sizeof(double));
-        free(tmp);
-    }
-}
-
-
-
 double cpu_dwt(double* t, int N)
 {
     assert(check_power_two(N));
@@ -193,20 +180,40 @@ double cpu_dwt(double* t, int N)
     return elapsed(begin,end);
 }
 
-void cpu_idwt(double *t, int N)
+double cpu_idwt(double *t, int N)
 {
     assert(check_power_two(N));
     int n;
+    clock_t begin, end; 
 
+    double *tmp = (double*)malloc(N*sizeof(double));
+
+    if(!tmp)
+    {
+        fprintf(stderr,"(host) cannot allocate memory for DWT\n");
+        exit(EXIT_FAILURE);
+    }
+
+    begin = clock();
     for(n = 4; n <= N; n <<= 1)
     {
-        cpu_d4_inv_transform(t,n);
+        cpu_d4_inv_transform(t,tmp,n);
+        memcpy(t,tmp,n*sizeof(double));
     }
+    end = clock();
+
+    printf("CPU Elapsed: %lfs\n", elapsed(begin,end));
+    free(tmp);
+
+    return elapsed(begin,end);
 }
 
-int save_timing()
+int save_timing_forward()
 {
-    FILE *save = fopen("timing.csv", "w+");
+    /*  benchmark CPU v. GPU on forward discrete wavelet transform 
+        and save into csv file */
+
+    FILE *save = fopen("results/timing.csv", "w+");
 
     if(!save) 
     {
@@ -229,6 +236,7 @@ int save_timing()
         printf("n=%d\n",n);
 
         size_t size = n*sizeof(double);
+
         double * gpu_coef   = (double*)malloc(size);
         double * cpu_coef   = (double*)malloc(size);
         double * x0         = (double*)malloc(size);
@@ -239,8 +247,6 @@ int save_timing()
         }
 
         /* copy constants */
-
-        
 
         fill_rand(x0, n);
         memcpy(gpu_coef,x0,size);
@@ -258,14 +264,102 @@ int save_timing()
         fprintf(save, "%d,%lf,%lf\n", n,cpu_time,gpu_time);
 
         n <<= 1;
+
+         free(cpu_coef);
+        free(gpu_coef);
+        free(x0);
     }
 
     fclose(save);
+    return 0;
+}
 
+int test_dwt(const int N)
+{
+    double *signal = (double*)malloc(N*sizeof(double));
+
+    fill_rand(signal, N);
+
+    double * cpu_coef = (double*)malloc(N*sizeof(double));
+    double * gpu_coef = (double*)malloc(N*sizeof(double));
+
+    CUDA_CALL(cudaMemcpyToSymbol(g,_g,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(h,_h,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ig,_ig,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ih,_ih,4*sizeof(double)));
+
+    memcpy(cpu_coef,signal,N*sizeof(double));
+    memcpy(gpu_coef,signal,N*sizeof(double));
+
+    cpu_dwt(cpu_coef,N);
+    gpu_dwt(gpu_coef,N);
+
+    if(!test_arrays_equal(cpu_coef,gpu_coef,N))
+    {
+        printf("DWT not the same on CPU and GPU.\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("DWT test: pass.\n");
+    return 0;
+}
+
+int test_idwt_cpu(const int N)
+{
+    double *signal = (double*)malloc(N*sizeof(double));
+
+    fill_rand(signal, N);
+
+    double * cpu_coef = (double*)malloc(N*sizeof(double));
+    memcpy(cpu_coef,signal,N*sizeof(double));
+
+    cpu_dwt(cpu_coef,N);
+    cpu_idwt(cpu_coef,N);
+
+    if(!test_arrays_equal(cpu_coef,signal,N))
+    {
+        printf("IDWT fail: signal not reconstructed on CPU.\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("IDWT CPU: pass.\n");
+    return 0;
+}
+
+int test_idwt_gpu(const int N)
+{
+    double *signal = (double*)malloc(N*sizeof(double));
+
+    fill_rand(signal, N);
+
+    double * gpu_coef = (double*)malloc(N*sizeof(double));
+
+    CUDA_CALL(cudaMemcpyToSymbol(g,_g,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(h,_h,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ig,_ig,4*sizeof(double)));
+    CUDA_CALL(cudaMemcpyToSymbol(ih,_ih,4*sizeof(double)));
+
+    memcpy(gpu_coef,signal,N*sizeof(double));
+
+    gpu_dwt(gpu_coef,N);
+    gpu_idwt(gpu_coef,N);
+
+    if(!test_arrays_equal(gpu_coef,signal,N))
+    {
+        printf("IDWT fail: signal not reconstructed on GPU.\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("IDWT GPU: pass.\n");
     return 0;
 }
 
 int main()
 {
-    save_timing();
+    int N = 1<<19;
+
+    test_dwt(N);
+    test_idwt_cpu(N);
+    test_idwt_gpu(N);
+
+    save_timing_forward();
+
+    return 0;
 }

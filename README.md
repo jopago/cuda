@@ -1,6 +1,7 @@
 # Cuda kernels
 
-Just some CUDA kernels I'm working on. 
+Just some CUDA kernels I'm working on. To compile just use the makefile with `make all` (make sure to 
+have `nvcc` added to your path and a working CUDA install.)
 
 ## Wavelets 
 
