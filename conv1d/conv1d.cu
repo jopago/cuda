@@ -137,7 +137,7 @@ void timing()
 
     fprintf(csv, "%s,%s,%s\n", "N", "CPU_Time", "GPU_Time");
 
-    for(N=1e4;N<=1e7;N *= 2)
+    for(N=1e4;N<=5e7;N *= 2)
     {
         if(!test_conv1d(N,cpu,gpu)) exit(EXIT_FAILURE);
 
