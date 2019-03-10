@@ -1,6 +1,7 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
+
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,9 +38,10 @@ void fill_rand(double *t, const int n)
     int i=0;
     for(;i<n;i++)
     {
-        t[i] = (rand() % INT_MAX)*1e-5;
+        t[i] = ((double)rand())/INT_MAX;
     }
 }
+
 
 int test_arrays_equal(double *t1, double *t2, const int n,
     const double tol = 1e-6)

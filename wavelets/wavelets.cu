@@ -116,6 +116,9 @@ double gpu_dwt(double *t, int N)
     CUDA_CALL(cudaMemcpy(t,d_src,size,cudaMemcpyDeviceToHost));
     
     printf("GPU Elapsed: %lfs \n", elapsed(begin,end));
+
+    CUDA_CALL(cudaFree(d_src));
+    CUDA_CALL(cudaFree(d_dst));
     return elapsed(begin,end);
 }
 
@@ -149,6 +152,9 @@ double gpu_idwt(double *t, int N)
     CUDA_CALL(cudaMemcpy(t,d_src,size,cudaMemcpyDeviceToHost));
     
     printf("GPU Elapsed: %lfs \n", elapsed(begin,end));
+
+    CUDA_CALL(cudaFree(d_src));
+    CUDA_CALL(cudaFree(d_dst));
     return 0;
 }
 
@@ -265,7 +271,7 @@ int save_timing_forward()
 
         n <<= 1;
 
-         free(cpu_coef);
+        free(cpu_coef);
         free(gpu_coef);
         free(x0);
     }
