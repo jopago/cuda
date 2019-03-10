@@ -1,17 +1,17 @@
 # Cuda kernels
 
 Just some CUDA kernels I'm working on. To compile just use the makefile with `make all` (make sure to 
-have `nvcc` added to your path and a working CUDA install.)
+have `nvcc` added to your path and a working CUDA install).
 
 ## 1D Convolution 
 
-Simple 1D convolution Cuda kernel, benchmarking against CPU.
+Simple 1D convolution Cuda kernel, benchmarking against CPU. This task is highly parallel and the achieved speedup important
+(up to 30x with my settings). 
 
 ![](https://github.com/jopago/cuda/raw/master/conv1d/img/timing_conv1d.png)
 
-
 ## Wavelets 
 
-A CUDA implementation of Discrete Wavelet Transform with Daubechies-4 wavelets. 
+A CUDA implementation of Discrete Wavelet Transform with Daubechies-4 wavelets. Since this DWT algorithm is recursive, the speedup is less important, 4 times with my settings. 
 
 ![](https://github.com/jopago/cuda/raw/master/wavelets/img/timing_wavelets.png)
