@@ -59,6 +59,7 @@ __global__ void gpu_conv1d(double *in, const int size_in, double * filter, const
 
 int test_conv1d(int N, double& cpu_time, double& gpu_time)
 {
+    int pass = 0;
     double * signal = (double*)malloc(N*sizeof(double));
     double * result = (double*)malloc(N*sizeof(double));
     double * gpu_result = (double*)malloc(N*sizeof(double));
@@ -104,22 +105,20 @@ int test_conv1d(int N, double& cpu_time, double& gpu_time)
     CUDA_CALL(cudaFree(d_result));
     CUDA_CALL(cudaFree(d_filter));
 
-    free(signal);
-
     if(!test_arrays_equal(gpu_result,result,N))
     {
         printf("Test failed!\n");
-
-        free(result);
-        free(gpu_result);
-        return 0;
+        pass = 0;
+    } else 
+    {
+        printf("Test passed!\n");
+        pass = 1;
     }
 
-    printf("Test passed!\n");
-   
+    free(signal);
     free(result);
     free(gpu_result);
-    return 1;
+    return pass;
 }
 
 void timing()

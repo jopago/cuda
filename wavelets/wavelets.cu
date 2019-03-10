@@ -282,6 +282,7 @@ int save_timing_forward()
 
 int test_dwt(const int N)
 {
+    int pass = 0;
     double *signal = (double*)malloc(N*sizeof(double));
 
     fill_rand(signal, N);
@@ -303,14 +304,22 @@ int test_dwt(const int N)
     if(!test_arrays_equal(cpu_coef,gpu_coef,N))
     {
         printf("DWT not the same on CPU and GPU.\n");
-        exit(EXIT_FAILURE);
+        pass = 0;
+    } else 
+    {
+        printf("DWT test: pass.\n");
+        pass = 1;
     }
-    printf("DWT test: pass.\n");
-    return 0;
+
+    free(signal);
+    free(cpu_coef);
+    free(gpu_coef);
+    return pass;
 }
 
 int test_idwt_cpu(const int N)
 {
+    int pass = 0;
     double *signal = (double*)malloc(N*sizeof(double));
 
     fill_rand(signal, N);
@@ -324,14 +333,21 @@ int test_idwt_cpu(const int N)
     if(!test_arrays_equal(cpu_coef,signal,N))
     {
         printf("IDWT fail: signal not reconstructed on CPU.\n");
-        exit(EXIT_FAILURE);
+        pass = 0;
+    } else 
+    {
+        printf("IDWT CPU: pass.\n");
+        pass = 1;
     }
-    printf("IDWT CPU: pass.\n");
-    return 0;
+    
+    free(signal);
+    free(cpu_coef);
+    return pass;
 }
 
 int test_idwt_gpu(const int N)
 {
+    int pass = 0;
     double *signal = (double*)malloc(N*sizeof(double));
 
     fill_rand(signal, N);
@@ -351,10 +367,16 @@ int test_idwt_gpu(const int N)
     if(!test_arrays_equal(gpu_coef,signal,N))
     {
         printf("IDWT fail: signal not reconstructed on GPU.\n");
-        exit(EXIT_FAILURE);
+        pass = 0;
+    } else 
+    {
+        printf("IDWT GPU: pass.\n");
+        pass = 1;
     }
-    printf("IDWT GPU: pass.\n");
-    return 0;
+    
+    free(gpu_coef);
+    free(signal);
+    return pass;
 }
 
 int main()
