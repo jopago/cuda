@@ -1,7 +1,6 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,7 +9,7 @@
 #include <string.h>
 
 #define CUDA_CALL(x) do { if((x) != cudaSuccess) { \
-    printf("Error %d at %s:%d\n",x, __FILE__,__LINE__); \
+    printf("Error %s (%d) at %s:%d\n", cudaGetErrorString(x),x, __FILE__,__LINE__); \
     return EXIT_FAILURE;}} while(0)
 
 double elapsed(clock_t begin, clock_t end)
@@ -75,7 +74,6 @@ void disp_2d(double *t, int n)
     }
     
 }
-
 
 int test_arrays_equal(double *t1, double *t2, const int n,
     const double tol = 1e-6)
