@@ -1,7 +1,9 @@
 #include <cuda_runtime.h>
 #include <common/utils.h>
+#include <common/cuda_ptr.h>
 
 #include "filters2d.h"
+
 
 void conv2d(double *in, int size_in, double *filter, int size_filter,
 	double *out)
@@ -79,72 +81,77 @@ int main(int argc, char **argv)
 {
 	// srand(time(0));
 	srand(123); 
-
-	int N = 1024, size_filter = 3;
-	int size = N*N*sizeof(double);
-
-	double *img = (double*)malloc(size);
-	double *conv_gpu = (double*)malloc(size);
-	double *conv_cpu = (double*)malloc(size);
-
-	double *img_gpu,*filter_gpu,*out_gpu;
-	double cpu_time,gpu_time;
-	clock_t begin,end;
-
-	if(!img || !conv_gpu || !conv_cpu)
+	int N;
+	FILE *csv = fopen("results/timing.csv", "w+");
+	if(!csv)
 	{
-		printf("(host) cannot allocate memory for images..\n");
+		fprintf(stderr, "%s\n", "(host) cannot open file results/timing.csv\n");
 		exit(EXIT_FAILURE);
 	}
+	fprintf(csv, "%s,%s,%s\n", "N","CPU_Time","GPU_Time");
 
-	fill_rand_2d(img,N);
-
-	CUDA_CALL(cudaMalloc(&img_gpu, size));
-	CUDA_CALL(cudaMalloc(&filter_gpu,size_filter*size_filter*sizeof(double)));
-	CUDA_CALL(cudaMalloc(&out_gpu,size));
-
-	CUDA_CALL(cudaMemcpy(img_gpu, img, size, cudaMemcpyHostToDevice));
-	CUDA_CALL(cudaMemcpy(filter_gpu, fd_x, size_filter*size_filter*sizeof(double), cudaMemcpyHostToDevice));
-
-	int blockWidth = 16;
-
-	dim3 dimBlock(blockWidth,blockWidth); // 256 threads per block
-	dim3 dimGrid(N / dimBlock.x, N / dimBlock.y); 
-
-	begin = clock();
-	gpu_conv2d<<<dimGrid,dimBlock>>>(img_gpu,N,filter_gpu,size_filter,out_gpu);
-	CUDA_CALL(cudaDeviceSynchronize());
-	end = clock();
-
-	gpu_time = elapsed(begin,end);
-
-	CUDA_CALL(cudaMemcpy(conv_gpu,out_gpu,size,cudaMemcpyDeviceToHost));
-
-	CUDA_CALL(cudaFree(out_gpu));
-	CUDA_CALL(cudaFree(img_gpu));
-	CUDA_CALL(cudaFree(filter_gpu));
-
-	begin = clock();
-	conv2d(img,N,fd_x,size_filter,conv_cpu);
-	end = clock();
-
-	cpu_time = elapsed(begin,end);
-
-	printf("GPU Time: %lfs\n", gpu_time);
-	printf("CPU Time: %lfs\n", cpu_time);
-
-	if(test_arrays_equal(conv_cpu,conv_gpu,N*N))
+	for(N=256; N<=4096; N += 256)
 	{
-		printf("Test passed!\n");
-	} else 
-	{
-		printf("Test failed!\n");
-		exit(EXIT_FAILURE);
+		int size_filter = 3;
+		int size = N*N*sizeof(double);
+
+		double *img 		= (double*)malloc(size);
+		double *conv_gpu 	= (double*)malloc(size);
+		double *conv_cpu 	= (double*)malloc(size);
+
+		double cpu_time,gpu_time;
+		clock_t begin,end;
+
+		if(!img || !conv_gpu || !conv_cpu)
+		{
+			printf("(host) cannot allocate memory for images..\n");
+			exit(EXIT_FAILURE);
+		}
+
+		fill_rand_2d(img,N);
+
+		cuda_ptr<double> img_gpu(img, size), filter_gpu(fd_x,3*3*sizeof(double)),
+			out_gpu(size);
+
+		int blockWidth = 8; // 64 threads (pixels) per block
+
+		dim3 dimBlock(blockWidth,blockWidth);
+		dim3 dimGrid(N / dimBlock.x, N / dimBlock.y); 
+
+		begin = clock();
+		gpu_conv2d<<<dimGrid,dimBlock>>>(img_gpu.devptr(),N,filter_gpu.devptr(),size_filter,out_gpu.devptr());
+		CUDA_CALL(cudaDeviceSynchronize());
+		end = clock();
+
+		gpu_time = elapsed(begin,end);
+
+		out_gpu.to_host(conv_gpu,size);
+
+		begin = clock();
+		conv2d(img,N,fd_x,size_filter,conv_cpu);
+		end = clock();
+
+		cpu_time = elapsed(begin,end);
+
+		printf("N: %d\n", N);
+		printf("GPU Time: %lfs\n", gpu_time);
+		printf("CPU Time: %lfs\n", cpu_time);
+
+		if(test_arrays_equal(conv_cpu,conv_gpu,N*N))
+		{
+			printf("Test passed!\n");
+		} else 
+		{
+			printf("Test failed!\n");
+			exit(EXIT_FAILURE);
+		}
+
+		fprintf(csv, "%d,%lf,%lf\n", N, cpu_time, gpu_time);
+
+		free(img);
+		free(conv_cpu);
+		free(conv_gpu);
 	}
-
-	free(img);
-	free(conv_cpu);
-	free(conv_gpu);
 
 	return 1;
 }

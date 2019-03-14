@@ -93,7 +93,7 @@ int test_conv1d(int N, double& cpu_time, double& gpu_time)
 
     begin = clock();
     gpu_conv1d<<<blocksPerGrid,threadsPerBlock>>>(d_signal, N, d_filter, fw, d_result);
-    cudaDeviceSynchronize();
+    CUDA_CALL(cudaDeviceSynchronize());
     end = clock();
 
     printf("GPU elapsed: %lfs\n", elapsed(begin,end));
