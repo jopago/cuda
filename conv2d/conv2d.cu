@@ -247,5 +247,6 @@ int main(int argc, char **argv)
     delete conv;
     delete conv_gpu; 
 
+    timing();
 	return 1;
 }

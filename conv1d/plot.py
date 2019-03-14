@@ -13,7 +13,7 @@ plt.plot(np.log10(times['N']), times['GPU_Time'],label='GPU Time (s)',color='dar
 plt.xlabel(r'$\log_{10}(N)$')
 plt.legend()
 
-plt.savefig('img/timing_conv1d.png',bbox_inches='tight', pad_inches=0,dpi=1000,figsize=(5,8))
+plt.savefig('img/timing_conv1d.png',bbox_inches='tight', pad_inches=0,dpi=500,figsize=(1,1))
 plt.show()
 
 print(times.head())
