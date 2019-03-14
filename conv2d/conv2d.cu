@@ -1,9 +1,11 @@
 #include <cuda_runtime.h>
 #include <common/utils.h>
 #include <common/cuda_ptr.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <iostream>
 
 #include "filters2d.h"
-
 
 void conv2d(double *in, int size_in, double *filter, int size_filter,
 	double *out)
@@ -77,9 +79,8 @@ __global__ void gpu_conv2d(double *in, int size_in, double *filter, int size_fil
 	}
 }
 
-int main(int argc, char **argv)
+int timing()
 {
-	// srand(time(0));
 	srand(123); 
 	int N;
 	FILE *csv = fopen("results/timing.csv", "w+");
@@ -152,6 +153,99 @@ int main(int argc, char **argv)
 		free(conv_cpu);
 		free(conv_gpu);
 	}
+
+	return 1;
+}
+
+int main(int argc, char **argv)
+{
+	// srand(time(0));
+    cv::Mat image = cv::imread("img/lena.png", 0); // grayscale 
+    const int N = image.rows;
+    const int size 	= N*N*sizeof(double);
+
+    const int blockWidth 	= 8; // 64 threads (pixels) per block
+    const int size_filter 	= 3;
+
+    if(!image.data)
+    {
+        std::cout <<  "(host) could not open or find the image" << std::endl ;
+        exit(EXIT_FAILURE);
+    }
+
+    double *img 		= new double[N*N];
+    double *conv 		= new double[N*N];
+    double *conv_gpu 	= new double[N*N];
+
+    int i,j;
+
+    for(i=0;i<N;i++)
+    {
+    	for(j=0;j<N;j++)
+    	{
+    		img[i*N + j] = image.at<unsigned char>(j,i);
+    	}
+    }
+
+    cuda_ptr<double> img_gpu(img,size);
+    cuda_ptr<double> filter_gpu(laplace2d,size_filter*size_filter*sizeof(double));
+    cuda_ptr<double> out_gpu(img,size);
+
+    clock_t begin, end;
+
+	dim3 dimBlock(blockWidth,blockWidth);
+	dim3 dimGrid(N / dimBlock.x, N / dimBlock.y); 
+
+	begin = clock();
+	gpu_conv2d<<<dimGrid,dimBlock>>>(img_gpu.devptr(),N,filter_gpu.devptr(),size_filter,out_gpu.devptr());
+	CUDA_CALL(cudaDeviceSynchronize());
+	end = clock();
+
+	std::cout << "GPU Time: " << elapsed(begin, end) << "s\n";
+
+	begin = clock();
+    conv2d(img, N, laplace2d, size_filter, conv);
+    end = clock();
+
+    cv::namedWindow("Lena", cv::WINDOW_AUTOSIZE);
+    cv::imshow("Lena", image);
+
+    std::cout << "CPU Time: " << elapsed(begin, end) << "s\n";
+
+    // display CPU convolution
+
+    for(i=0;i<N;i++)
+	{
+		for(j=0;j<N;j++)
+		{
+			image.at<unsigned char>(j,i) = max(0.0,conv[i*N + j]);
+		}
+	}
+
+    cv::namedWindow("CPU", cv::WINDOW_AUTOSIZE);
+    cv::imshow("CPU",image);
+
+    // copy result from gpu 
+	out_gpu.to_host(conv_gpu, size);
+
+	// display GPU convolution
+    for(i=0;i<N;i++)
+	{
+		for(j=0;j<N;j++)
+		{
+			image.at<unsigned char>(j,i) = max(0.0,conv_gpu[i*N + j]);
+		}
+	}
+
+    cv::namedWindow("GPU", cv::WINDOW_AUTOSIZE);
+    cv::imshow("GPU",image);
+    cv::imwrite("img/convolution_gpu.png",image);
+
+    cv::waitKey(0);
+
+    delete img;
+    delete conv;
+    delete conv_gpu; 
 
 	return 1;
 }
