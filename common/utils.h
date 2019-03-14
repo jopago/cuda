@@ -42,6 +42,40 @@ void fill_rand(double *t, const int n)
     }
 }
 
+void fill_ones(double *t, const int n)
+{
+    int i=0;
+    for(;i<n;i++)
+    {
+        t[i] = 1.;
+    }
+}
+
+void fill_rand_2d(double *t, int n)
+{
+    int i;
+
+    for(i=0;i<n*n;i++)
+    {
+        t[i] = (double)rand() / INT_MAX;
+    }
+}
+
+void disp_2d(double *t, int n)
+{
+    int i,j;
+
+    for(i=0;i<n;i++)
+    {
+        for(j=0;j<n;j++)
+        {
+            printf("%lf ", t[i*n+j]);
+        }
+        printf("\n");
+    }
+    
+}
+
 
 int test_arrays_equal(double *t1, double *t2, const int n,
     const double tol = 1e-6)
