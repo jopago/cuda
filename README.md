@@ -9,7 +9,7 @@ have `nvcc` added to your path and a working CUDA install).
 Simple 2D convolution Cuda kernel, benchmarking against CPU. This task is highly parallel and the achieved speedup important
 (up to 50x with my settings). 
 
-![](https://github.com/jopago/cuda/raw/master/conv1d/img/timing_conv2d.png)
+![](https://github.com/jopago/cuda/raw/master/conv2d/img/timing_conv2d.png)
 
 ## Wavelets 
 
