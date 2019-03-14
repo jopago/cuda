@@ -7,8 +7,9 @@
 
 #include "filters2d.h"
 
-void conv2d(double *in, int size_in, double *filter, int size_filter,
-	double *out)
+template <typename T>
+void conv2d(T* in, int size_in, double* filter, int size_filter,
+	T* out)
 {
 
 	int i,j,k;
@@ -18,7 +19,7 @@ void conv2d(double *in, int size_in, double *filter, int size_filter,
 	{
 		for(j=0;j<size_in;j++)
 		{
-			double sum = 0.0;
+			T sum = 0.0;
 			int i_top_left = i-radius;
 			int j_top_left = j-radius;
 
@@ -48,7 +49,8 @@ void conv2d(double *in, int size_in, double *filter, int size_filter,
 	}
 }
 
-__global__ void gpu_conv2d(double *in, int size_in, double *filter, int size_filter,
+template <typename T>
+__global__ void gpu_conv2d(T* in, int size_in, double *filter, int size_filter,
 	double *out)
 {
 	int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -204,7 +206,7 @@ int main(int argc, char **argv)
 	std::cout << "GPU Time: " << elapsed(begin, end) << "s\n";
 
 	begin = clock();
-    conv2d(img, N, laplace2d, size_filter, conv);
+    conv2d<double>(img, N, laplace2d, size_filter, conv);
     end = clock();
 
     cv::namedWindow("Lena", cv::WINDOW_AUTOSIZE);
@@ -247,6 +249,5 @@ int main(int argc, char **argv)
     delete conv;
     delete conv_gpu; 
 
-    timing();
 	return 1;
 }
