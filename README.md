@@ -12,6 +12,7 @@ Simple 2D convolution Cuda kernel, benchmarking against CPU. This task is highly
 
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/lena.png)
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/convolution_gpu.png)
+![](https://github.com/jopago/cuda/raw/master/conv2d/img/convolution_gpu_sharpen.png)
 
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/timing_conv2d.png)
 
