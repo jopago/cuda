@@ -3,12 +3,13 @@
 Just some CUDA kernels I'm working on. To compile just use the makefile with `make all` (make sure to 
 have `nvcc` added to your path and a working CUDA install).
 
-## 1D Convolution 
 
-Simple 1D convolution Cuda kernel, benchmarking against CPU. This task is highly parallel and the achieved speedup important
-(up to 30x with my settings). 
+## 2D Convolution 
 
-![](https://github.com/jopago/cuda/raw/master/conv1d/img/timing_conv1d.png)
+Simple 2D convolution Cuda kernel, benchmarking against CPU. This task is highly parallel and the achieved speedup important
+(up to 50x with my settings). 
+
+![](https://github.com/jopago/cuda/raw/master/conv1d/img/timing_conv2d.png)
 
 ## Wavelets 
 
