@@ -59,7 +59,7 @@ __global__ void gpu_conv2d(T* in, int size_in, double *filter, int size_filter,
 
 	if((i < size_in) && (j < size_in))
 	{
-		double sum = 0.;
+		T sum = 0;
 		int k;
 
 		int i_top_left = i-radius;
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
     }
 
     cuda_ptr<double> img_gpu(img,size);
-    cuda_ptr<double> filter_gpu(laplace2d,size_filter*size_filter*sizeof(double));
+    cuda_ptr<double> filter_gpu(ones2d,size_filter*size_filter*sizeof(double));
     cuda_ptr<double> out_gpu(img,size);
 
     clock_t begin, end;
@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 	std::cout << "GPU Time: " << elapsed(begin, end) << "s\n";
 
 	begin = clock();
-    conv2d<double>(img, N, laplace2d, size_filter, conv);
+    conv2d<double>(img, N, ones2d, size_filter, conv);
     end = clock();
 
     cv::namedWindow("Lena", cv::WINDOW_AUTOSIZE);

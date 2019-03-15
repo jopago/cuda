@@ -27,6 +27,11 @@ public:
 		CUDA_CALL_VOID(cudaFree(ptr));
 	}
 
+	void copy(const T* host_ptr, const int size)
+	{
+		CUDA_CALL_VOID(cudaMemcpy(ptr,host_ptr,size,cudaMemcpyHostToDevice));
+	}
+
 	void to_host(T* host_ptr, const int size)
 	{
 		CUDA_CALL_VOID(cudaMemcpy(host_ptr,ptr,size,cudaMemcpyDeviceToHost));
