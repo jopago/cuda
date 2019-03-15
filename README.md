@@ -1,6 +1,6 @@
 # CUDA
 
-This repo contains some CUDA kernels I'm working on, mostly about signal processing. To compile just use the makefile with `make all` (make sure to have `nvcc` added to your path and a working CUDA install).
+> This repo contains some CUDA kernels I'm working on for academic purposes, mostly about signal processing. To compile just use the makefile with `make all` (make sure to have `nvcc` added to your path and a working CUDA install).
 
 
 ## 2D Convolution 
