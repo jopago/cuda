@@ -19,7 +19,7 @@ void conv2d(T* in, int size_in, double* filter, int size_filter,
 	{
 		for(j=0;j<size_in;j++)
 		{
-			T sum = 0.0;
+			T sum = 0;
 			int i_top_left = i-radius;
 			int j_top_left = j-radius;
 
@@ -59,7 +59,7 @@ __global__ void gpu_conv2d(T* in, int size_in, double *filter, int size_filter,
 
 	if((i < size_in) && (j < size_in))
 	{
-		double sum = 0.;
+		T sum = 0;
 		int k;
 
 		int i_top_left = i-radius;
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 	out_gpu.to_host(conv_gpu, size);
 
 	// display GPU convolution
-    for(i=0;i<N;i++)
+	for(i=0;i<N;i++)
 	{
 		for(j=0;j<N;j++)
 		{
