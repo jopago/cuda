@@ -1,14 +1,11 @@
-# Cuda kernels
+# CUDA
 
-Just some CUDA kernels I'm working on. To compile just use the makefile with `make all` (make sure to 
-have `nvcc` added to your path and a working CUDA install).
+This repo contains some CUDA kernels I'm working on, mostly about signal processing. To compile just use the makefile with `make all` (make sure to have `nvcc` added to your path and a working CUDA install).
 
 
 ## 2D Convolution 
 
-Simple 2D convolution Cuda kernel, benchmarking against CPU. This task is highly parallel and the achieved speedup important
-(up to 50x with my settings). 
-
+A parallel 2D implementation of convolution with CUDA, and benchmarking against CPU. This task is highly parallel and the achieved speedup important (up to 50x with my settings), image displaying and reading is doen with OpenCV.
 
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/lena.png)
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/convolution_gpu.png)
