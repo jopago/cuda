@@ -5,12 +5,11 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/gpu/gpu.hpp>
 
 #include <iostream>
 
 // 1.0/ sqrt(2)
-#define haar 0.707106781f
+#define haar 0.5f
 
 /*  Haar wavelets forward horizontal and vertical passes 
     To get the full decomposition we apply one after the other
@@ -51,28 +50,92 @@ __global__ void gpu_haar_vertical(T* in, const int n, T* out, const int N)
 	}
 }
 
-void mat_to_double(cv::Mat in, double* out)
+template<typename T>
+__global__ void gpu_inverse_haar_vertical(T* in, const int h, const int w, T* out, const int N)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if(i < h && j < w)
+    {
+        auto out_idx_1 = 2*i*N + j;
+        auto out_idx_2 = (2*i+1)*N + j;
+        auto in_idx_1 = i*N + j;
+        auto in_idx_2 = (i+h)*N + j;
+
+        out[out_idx_1] = (in[in_idx_1] + in[in_idx_2]);
+        out[out_idx_2] = (in[in_idx_1] - in[in_idx_2]);
+    }
+}
+
+template<typename T>
+__global__ void gpu_inverse_haar_horizontal(T* in, const int h, const int w, T* out, const int N)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if(i < h && j < w)
+    {
+        auto out_idx_1 = i*N + 2*j;
+        auto out_idx_2 = i*N + 2*j+1;
+        auto in_idx_1 = i*N + j;
+        auto in_idx_2 = i*N + j + w;
+
+        out[out_idx_1] = (in[in_idx_1] + in[in_idx_2]);
+        out[out_idx_2] = (in[in_idx_1] - in[in_idx_2]);
+    }
+}
+
+template<typename T>
+__global__ void gpu_low_pass(T* x, const int n)
+{
+    auto i = blockIdx.x * blockDim.x + threadIdx.x;
+    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if(i < n && j < n)
+    {
+        if(fabs(x[i*n+j]) < 1.5f)
+        {
+            x[i*n+j] = 0.0f;
+        }
+    }
+}
+
+
+void mat_to_float(cv::Mat in, float* out)
 {
     for(auto i = 0; i < in.rows; i++)
     {
         for(auto j = 0; j < in.rows; j++)
         {
-            out[i*in.rows + j] = in.at<unsigned char>(j,i);
+            out[i*in.rows + j] = in.at<float>(j,i);
         }
     }
 }
 
-void double_to_mat(double *in, cv::Mat* out)
+void float_to_mat(float *in, cv::Mat* out)
 {
+    std::cout << out->rows << std::endl; 
     for(auto i = 0; i < out->rows; i++)
     {
         for(auto j = 0; j < out->rows; j++)
         {
-            out->at<unsigned char>(j,i) = 10*fabs(in[i*out->rows + j]);
+            out->at<float>(j,i) = 0.1*fabs(in[i*out->rows + j]);
         }
     }
 }
 
+void float_to_mat_2(float *in, cv::Mat* out)
+{
+    std::cout << out->rows << std::endl; 
+    for(auto i = 0; i < out->rows; i++)
+    {
+        for(auto j = 0; j < out->rows; j++)
+        {
+            out->at<float>(j,i) = 0.01*in[i*out->rows + j];
+        }
+    }
+}
 
 int main()
 {
@@ -85,67 +148,95 @@ int main()
     }
 
     const int N = 512;
-    const int size = N*N*sizeof(double);
-    cv::Mat frame;
-    cv::Mat channels[3]; 
+    const int size = N*N*sizeof(float);
+    
     cv::Size frame_size(N,N);
-    double *frame_buf   = new double[N*N];
-    double *wav_buf     = new double[N*N];
+    cv::Mat frame(frame_size,CV_32FC1);
+    cv::Mat inverse(frame_size,CV_32FC1);
 
-    cv::namedWindow("window", 1);
+    float *frame_buf   = new float[N*N];
+    float *wav_buf     = new float[N*N];
 
-    cuda_ptr<double> gpu_frame(frame_buf,size);
-    cuda_ptr<double> gpu_wav(frame_buf,size);
+    cv::namedWindow("Wavelets", 1);
+    cv::namedWindow("Inverse",1);
+
+    cuda_ptr<float> gpu_frame(frame_buf,size);
+    cuda_ptr<float> gpu_wav(frame_buf,size);
 
     int blockWidth = 8;
     dim3 dimBlock(blockWidth,blockWidth);
     dim3 dimGrid(N / dimBlock.x, N / dimBlock.y); // 64 threads (pixels) per block
     int screenshot = 0;
 
+   
     for(;;)
     {
         cap >> frame;
 
-        // cv::cvtColor(frame,frame,CV_RGB2GRAY);
+        frame.convertTo(frame,CV_32FC1);
+        cv::cvtColor(frame,frame,CV_RGB2GRAY);
 
         cv::resize(frame,frame,frame_size); 
-        cv::split(frame, channels);
-
-        for(auto i = 0; i < 3; i++)
+        mat_to_float(frame, frame_buf);
+        gpu_frame.copy(frame_buf, size);
+        // compute wavelet transform of current frame 
+        
+        for(auto n = N; n > 1; n /= 2)
         {
-            frame = channels[i]; 
-
-            mat_to_double(frame, frame_buf);
-            gpu_frame.copy(frame_buf, size);
-
-            // compute wavelet transform of current frame 
-
-            for(auto n = N; n > 1; n /= 2)
-            {
-                // Perform horizontal then vertical forward pass 
-                gpu_haar_horizontal<<<dimGrid,dimBlock>>>(gpu_frame.devptr(),n,
-                    gpu_wav.devptr(), N);
-                gpu_haar_vertical<<<dimGrid,dimBlock>>>(gpu_wav.devptr(),n,
-                    gpu_frame.devptr(), N);
-                CUDA_CALL(cudaDeviceSynchronize());
-            }
-
-            // write back to CPU
-            gpu_frame.to_host(wav_buf,size);
-
-            double_to_mat(wav_buf, &channels[i]); 
+            // Perform horizontal then vertical forward pass 
+            gpu_haar_horizontal<<<dimGrid,dimBlock>>>(gpu_frame.devptr(),n,
+                gpu_wav.devptr(), N);
+            gpu_haar_vertical<<<dimGrid,dimBlock>>>(gpu_wav.devptr(),n,
+                gpu_frame.devptr(), N);
+            CUDA_CALL(cudaDeviceSynchronize());
         }
 
-        cv::merge(channels, 3, frame);
-        cv::imshow("window",frame);
+        // write back to CPU
+        gpu_frame.to_host(wav_buf,size);
+        float_to_mat(wav_buf, &frame); 
+       
+        cv::imshow("Wavelets",frame);
 
+        /* Filtering */
+
+        // gpu_low_pass<<<dimGrid,dimBlock>>>(gpu_frame.devptr(), N);
+        // CUDA_CALL(cudaDeviceSynchronize());
+
+        /* Inverse wavelet transform */
+
+        auto k = 1;
+        auto height = 1;
+        auto width = 1;
+
+        while(k < N)
+        {
+            gpu_inverse_haar_vertical<<<dimGrid,dimBlock>>>(gpu_frame.devptr(),height,
+                width,
+                gpu_wav.devptr(), N);
+            height *= 2;
+
+            gpu_inverse_haar_horizontal<<<dimGrid,dimBlock>>>(gpu_wav.devptr(),height,
+                width,
+                gpu_frame.devptr(), N);
+
+            width *= 2;
+            CUDA_CALL(cudaDeviceSynchronize());
+
+            k *= 2;
+        }
+
+        gpu_frame.to_host(wav_buf,size); 
+        float_to_mat_2(wav_buf,&frame);
+        
+        cv::imshow("Inverse",frame); 
+        
         if(!screenshot)
         {
             screenshot = 1;
             cv::imwrite("img/decomposition_frame.png", frame);
-        }
+        } 
 
-        if(cv::waitKey(30) >= 0) break;
+        if(cv::waitKey(30) >= 0) break; 
     }
 
 	return 0;
