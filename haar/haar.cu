@@ -18,13 +18,13 @@
 template<typename T>
 __global__ void gpu_haar_horizontal(T* in, const int n, T* out, const int N)
 {
-	auto i = blockIdx.x * blockDim.x + threadIdx.x;
-	auto j = blockIdx.y * blockDim.y + threadIdx.y;
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	int j = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if( i < n && j < n/2)
 	{
-		auto idx_in 	= i*N + 2*j;    // (i,2*j)
-		auto idx_out 	= j + i*N;      // (i,j)
+		int idx_in 	= i*N + 2*j;    // (i,2*j)
+		int idx_out 	= j + i*N;      // (i,j)
 
 		out[idx_out] 		= haar*(in[idx_in] + in[idx_in+1]);
         // out(i,2*j + n/2)
@@ -35,14 +35,14 @@ __global__ void gpu_haar_horizontal(T* in, const int n, T* out, const int N)
 template<typename T>
 __global__ void gpu_haar_vertical(T* in, const int n, T* out, const int N)
 {
-	auto i = blockIdx.x * blockDim.x + threadIdx.x;
-	auto j = blockIdx.y * blockDim.y + threadIdx.y;
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	int j = blockIdx.y * blockDim.y + threadIdx.y;
 
 	if( i < n/2 && j < n)
 	{
-		auto in_idx_1 	= 2*i*N + j;
-		auto in_idx_2 	= (2*i+1)*N + j;
-		auto out_idx 	= j + i*N;
+		int in_idx_1 	= 2*i*N + j;
+		int in_idx_2 	= (2*i+1)*N + j;
+		int out_idx 	= j + i*N;
 
         out[out_idx]            = haar*(in[in_idx_1] + in[in_idx_2]);
         // out(i+n/2,j)
@@ -53,15 +53,15 @@ __global__ void gpu_haar_vertical(T* in, const int n, T* out, const int N)
 template<typename T>
 __global__ void gpu_inverse_haar_vertical(T* in, const int h, const int w, T* out, const int N)
 {
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if(i < h && j < w)
     {
-        auto out_idx_1 = 2*i*N + j;
-        auto out_idx_2 = (2*i+1)*N + j;
-        auto in_idx_1 = i*N + j;
-        auto in_idx_2 = (i+h)*N + j;
+        int out_idx_1 = 2*i*N + j;
+        int out_idx_2 = (2*i+1)*N + j;
+        int in_idx_1 = i*N + j;
+        int in_idx_2 = (i+h)*N + j;
 
         out[out_idx_1] = (in[in_idx_1] + in[in_idx_2]);
         out[out_idx_2] = (in[in_idx_1] - in[in_idx_2]);
@@ -71,15 +71,15 @@ __global__ void gpu_inverse_haar_vertical(T* in, const int h, const int w, T* ou
 template<typename T>
 __global__ void gpu_inverse_haar_horizontal(T* in, const int h, const int w, T* out, const int N)
 {
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if(i < h && j < w)
     {
-        auto out_idx_1 = i*N + 2*j;
-        auto out_idx_2 = i*N + 2*j+1;
-        auto in_idx_1 = i*N + j;
-        auto in_idx_2 = i*N + j + w;
+        int out_idx_1 = i*N + 2*j;
+        int out_idx_2 = i*N + 2*j+1;
+        int in_idx_1 = i*N + j;
+        int in_idx_2 = i*N + j + w;
 
         out[out_idx_1] = (in[in_idx_1] + in[in_idx_2]);
         out[out_idx_2] = (in[in_idx_1] - in[in_idx_2]);
@@ -89,8 +89,8 @@ __global__ void gpu_inverse_haar_horizontal(T* in, const int h, const int w, T* 
 template<typename T>
 __global__ void gpu_low_pass(T* x, const int n)
 {
-    auto i = blockIdx.x * blockDim.x + threadIdx.x;
-    auto j = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
 
     if(i < n && j < n)
     {
@@ -104,9 +104,9 @@ __global__ void gpu_low_pass(T* x, const int n)
 
 void mat_to_float(cv::Mat in, float* out)
 {
-    for(auto i = 0; i < in.rows; i++)
+    for(int i = 0; i < in.rows; i++)
     {
-        for(auto j = 0; j < in.rows; j++)
+        for(int j = 0; j < in.rows; j++)
         {
             out[i*in.rows + j] = in.at<float>(j,i);
         }
@@ -115,10 +115,9 @@ void mat_to_float(cv::Mat in, float* out)
 
 void float_to_mat(float *in, cv::Mat* out)
 {
-    std::cout << out->rows << std::endl; 
-    for(auto i = 0; i < out->rows; i++)
+    for(int i = 0; i < out->rows; i++)
     {
-        for(auto j = 0; j < out->rows; j++)
+        for(int j = 0; j < out->rows; j++)
         {
             out->at<float>(j,i) = 0.1*fabs(in[i*out->rows + j]);
         }
@@ -127,10 +126,9 @@ void float_to_mat(float *in, cv::Mat* out)
 
 void float_to_mat_2(float *in, cv::Mat* out)
 {
-    std::cout << out->rows << std::endl; 
-    for(auto i = 0; i < out->rows; i++)
+    for(int i = 0; i < out->rows; i++)
     {
-        for(auto j = 0; j < out->rows; j++)
+        for(int j = 0; j < out->rows; j++)
         {
             out->at<float>(j,i) = 0.01*in[i*out->rows + j];
         }
