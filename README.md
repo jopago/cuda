@@ -1,6 +1,6 @@
 # CUDA
 
-> This repo contains some CUDA kernels I'm working on for academic purposes, mostly about signal processing. To compile just use the makefile with `make all` (make sure to have `nvcc` added to your path and a working CUDA install).
+> This repo contains some CUDA kernels I'm writing for learning purposes, mostly about signal processing. To compile it, just use the makefile with `make all` (make sure to have `nvcc` added to your path and a working CUDA install).
 
 ## Live Haar wavelet decomposition with OpenCV
 
@@ -15,7 +15,6 @@ A parallel 2D implementation of convolution with CUDA, and benchmarking against 
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/lena.png)
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/convolution_gpu.png)
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/convolution_gpu_sharpen.png)
-
 ![](https://github.com/jopago/cuda/raw/master/conv2d/img/timing_conv2d.png)
 
 ## Daubechies-4 Wavelets 
